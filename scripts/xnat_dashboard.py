@@ -69,6 +69,7 @@ from dashboard import (
     parse_counts,
     parse_private_creators,
     parse_large_private_elements,
+    parse_scan_summary,
     render_overview,
     render_phi_review,
     render_tag_explorer,
@@ -411,6 +412,7 @@ def _load_data(output_dir):
     std_seq_path = os.path.join(output_dir, "standard_sequences.txt")
     priv_seq_path = os.path.join(output_dir, "private_sequences.txt")
     large_priv_path = os.path.join(output_dir, "large_private_elements.txt")
+    summary_path = os.path.join(output_dir, "scan_summary.txt")
 
     data = {
         "std_elements": parse_standard_elements(std_path) if os.path.exists(std_path) else {},
@@ -423,6 +425,7 @@ def _load_data(output_dir):
         "std_sequences": parse_sequences(std_seq_path),
         "priv_sequences": parse_sequences(priv_seq_path),
         "large_priv": parse_large_private_elements(large_priv_path),
+        "scan_summary": parse_scan_summary(summary_path),
     }
     data["total_files"] = sum(int(r["Files"]) for r in data["counts"]) if data["counts"] else 0
     data["modalities"] = data["std_elements"].get("0008,0060", {}).get("values", [])
@@ -473,7 +476,7 @@ def render_dashboard():
 
     # Route to section renderer
     if section == "Dataset Overview":
-        render_overview(d["std_elements"], d["priv_elements"], d["sop_classes"], d["studies"], d["modalities"], d["total_files"])
+        render_overview(d["std_elements"], d["priv_elements"], d["sop_classes"], d["studies"], d["modalities"], d["total_files"], d["scan_summary"])
     elif section == "PHI Review":
         render_phi_review(d["std_elements"], d["dt_elements"])
     elif section == "Tag Explorer":

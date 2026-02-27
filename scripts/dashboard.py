@@ -236,6 +236,24 @@ def parse_large_private_elements(filepath):
     return rows
 
 
+@st.cache_data
+def parse_scan_summary(filepath):
+    """Parse scan_summary.txt into a dict of counts."""
+    summary = {}
+    if not os.path.exists(filepath):
+        return summary
+    with open(filepath, "r") as f:
+        for line in f:
+            line = line.strip()
+            if "=" in line:
+                key, val = line.split("=", 1)
+                try:
+                    summary[key] = int(val)
+                except ValueError:
+                    summary[key] = val
+    return summary
+
+
 # ---------------------------------------------------------------------------
 # PHI tag definitions
 # ---------------------------------------------------------------------------
@@ -380,13 +398,19 @@ def render_overview(std_elements, priv_elements, sop_classes, studies, modalitie
     c3.metric("Standard Tags", len(std_elements))
     c4.metric("Private Element Groups", len(priv_elements))
 
-    if files_scanned and files_scanned != total_files:
-        st.caption(
-            f"{files_scanned:,} files were found in the directory. "
-            f"{total_files:,} were successfully parsed as valid DICOM. "
-            f"The remaining {files_scanned - total_files:,} may be non-DICOM files "
-            f"(e.g. DICOMDIR, thumbnails) or files that failed to parse."
-        )
+    if files_scanned and files_scanned.get("total_files", 0) > 0:
+        total = files_scanned["total_files"]
+        parsed = files_scanned.get("dicom_parsed", 0)
+        errors = files_scanned.get("parse_errors", 0)
+        skipped = total - parsed - errors
+        parts = [f"{total:,} files found in project"]
+        if parsed:
+            parts.append(f"{parsed:,} DICOM files parsed")
+        if errors:
+            parts.append(f"{errors:,} could not be parsed")
+        if skipped:
+            parts.append(f"{skipped:,} non-DICOM skipped")
+        st.caption(" \u2022 ".join(parts))
 
     st.divider()
 
