@@ -339,10 +339,18 @@ def _section_study_summary(counts, large_priv):
     html += '<h3>Large Private Elements</h3>'
     if large_priv:
         html += '<div class="warning-box">Large private elements detected. These are SHA-256 hashes of private data elements exceeding size thresholds.</div>'
+        total_hashes = len(large_priv)
+        total_occurrences = sum(r["Count"] for r in large_priv)
+        html += f'<div class="metrics"><div class="metric"><div class="value">{total_hashes:,}</div><div class="label">Unique hashes</div></div>'
+        html += f'<div class="metric"><div class="value">{total_occurrences:,}</div><div class="label">Total occurrences</div></div></div>'
+        sorted_priv = sorted(large_priv, key=lambda r: r["Count"], reverse=True)
+        display_limit = 10
         html += '<div class="table-scroll"><table><tr><th>SHA-256 Hash</th><th>Occurrences</th></tr>'
-        for r in large_priv:
+        for r in sorted_priv[:display_limit]:
             html += f'<tr><td><code>{_esc(r["Hash"])}</code></td><td>{_esc(r["Count"])}</td></tr>'
         html += '</table></div>'
+        if total_hashes > display_limit:
+            html += f'<p><em>Showing top {display_limit} of {total_hashes:,} unique hashes. Full data available in large_private_elements.txt</em></p>'
     else:
         html += '<div class="success-box">No large private elements detected</div>'
 
