@@ -16,16 +16,27 @@ Usage (local testing):
 """
 
 import os
+import subprocess
+import sys
+
+# ---------------------------------------------------------------------------
+# Auto-install dependencies from requirements-xnat.txt before anything else
+# ---------------------------------------------------------------------------
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_REQUIREMENTS = os.path.join(_SCRIPT_DIR, "requirements-xnat.txt")
+
+if os.path.isfile(_REQUIREMENTS):
+    subprocess.check_call(
+        [sys.executable, "-m", "pip", "install", "-q", "-r", _REQUIREMENTS],
+        stdout=subprocess.DEVNULL,
+    )
 
 # Point Streamlit at the .streamlit config dir bundled with this script
 # (must be set before importing streamlit)
-_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 os.environ.setdefault("STREAMLIT_CONFIG_DIR", os.path.join(_SCRIPT_DIR, ".streamlit"))
 
 import atexit
 import shutil
-import subprocess
-import sys
 import tempfile
 import time
 
