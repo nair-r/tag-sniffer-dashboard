@@ -241,8 +241,6 @@ def render_startup():
     """Show welcome screen with project info and run button."""
     xnat_host = os.environ.get("XNAT_HOST", "")
     xnat_item = os.environ.get("XNAT_ITEM_ID", "")
-    xnat_data = os.environ.get("XNAT_DATA", "")
-
     st.title("DICOM Tag Sniffer - PHI Detection", anchor=False)
     st.caption("Scan DICOM files in this project for Protected Health Information.")
 
@@ -255,8 +253,10 @@ def render_startup():
         c2.markdown(f"**Project:** `{xnat_item}`")
 
     # Determine input directory
-    if xnat_data and os.path.isdir(xnat_data):
-        input_dir = xnat_data
+    # On XNAT, data is always at /data/projects/{XNAT_ITEM_ID}.
+    # The tag sniffer recursively finds all DICOMs under the given directory.
+    if xnat_item:
+        input_dir = os.path.join("/data", "projects", xnat_item)
         st.info(f"DICOM data path: `{input_dir}`")
     else:
         st.warning("XNAT data mount not detected. Enter a path manually for local testing.")
