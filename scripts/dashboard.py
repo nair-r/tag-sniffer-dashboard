@@ -552,8 +552,28 @@ def render_study_summary(counts, large_priv):
             "data elements exceeding size thresholds, which may indicate embedded "
             "images or hidden PHI."
         )
+        total_hashes = len(large_priv)
+        total_occurrences = sum(r["Count"] for r in large_priv)
+        c1, c2 = st.columns(2)
+        c1.metric("Unique Hashes", f"{total_hashes:,}")
+        c2.metric("Total Occurrences", f"{total_occurrences:,}")
+
+        # Paginate to avoid overwhelming the browser
+        sorted_priv = sorted(large_priv, key=lambda r: r["Count"], reverse=True)
+        page_size = 50
+        total_pages = max(1, (total_hashes + page_size - 1) // page_size)
+        page = st.number_input(
+            f"Page (of {total_pages:,})",
+            min_value=1,
+            max_value=total_pages,
+            value=1,
+            key="large_priv_page",
+        )
+        start = (page - 1) * page_size
+        end = min(start + page_size, total_hashes)
+        st.caption(f"Showing {start + 1:,} - {end:,} of {total_hashes:,} (sorted by occurrences)")
         st.dataframe(
-            large_priv,
+            sorted_priv[start:end],
             use_container_width=True,
             column_config={
                 "Hash": st.column_config.TextColumn("SHA-256 Hash", width="large"),
