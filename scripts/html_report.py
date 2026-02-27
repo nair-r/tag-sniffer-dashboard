@@ -233,6 +233,9 @@ def _section_overview(std_elements, priv_elements, sop_classes, studies, modalit
             parts.append(f"{errors:,} could not be parsed")
         if skipped:
             parts.append(f"{skipped:,} non-DICOM skipped")
+        threads = scan_summary.get("threads")
+        if threads:
+            parts.append(f"{threads} threads")
         html += f'<p style="color:#888; font-size:0.9em;">{" &bull; ".join(parts)}</p>'
 
     html += '<h3>Modalities</h3>'

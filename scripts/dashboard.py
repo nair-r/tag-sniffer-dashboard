@@ -410,6 +410,9 @@ def render_overview(std_elements, priv_elements, sop_classes, studies, modalitie
             parts.append(f"{errors:,} could not be parsed")
         if skipped:
             parts.append(f"{skipped:,} non-DICOM skipped")
+        threads = files_scanned.get("threads")
+        if threads:
+            parts.append(f"{threads} threads")
         st.caption(" \u2022 ".join(parts))
 
     st.divider()
