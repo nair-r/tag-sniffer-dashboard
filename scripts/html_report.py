@@ -365,7 +365,7 @@ def _section_study_summary(counts, large_priv):
             html += f'<tr><td><code>{_esc(r["Hash"])}</code></td><td>{_esc(r["Count"])}</td></tr>'
         html += '</table></div>'
         if total_hashes > display_limit:
-            html += f'<p><em>Showing top {display_limit} of {total_hashes:,} unique hashes. Full data available in large_private_elements.txt</em></p>'
+            html += f'<p><em>Showing top {display_limit} of {total_hashes:,} unique hashes. Full data available in the dashboard Study Summary tab.</em></p>'
     else:
         html += '<div class="success-box">No large private elements detected</div>'
 
