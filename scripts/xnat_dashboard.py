@@ -277,13 +277,6 @@ def render_startup():
         st.caption("Waiting for a valid DICOM directory...")
         return
 
-    # Count files for preview
-    file_count = 0
-    for root, dirs, files in os.walk(input_dir):
-        file_count += len(files)
-
-    st.metric("Files found", f"{file_count:,}")
-
     # Rules selection
     rules_label = st.selectbox(
         "Scan rules",
@@ -304,7 +297,6 @@ def render_startup():
         st.session_state.input_dir = input_dir
         st.session_state.project_name = xnat_item or os.path.basename(input_dir)
         st.session_state.output_dir = tempfile.mkdtemp(prefix="tagsniffer_")
-        st.session_state.files_scanned = file_count
         st.session_state.rules_path = _RULES_OPTIONS[rules_label]
         st.session_state.state = "running"
         st.rerun()
@@ -404,14 +396,11 @@ def render_running():
 # Dashboard screen (reuses existing dashboard.py renderers)
 # ---------------------------------------------------------------------------
 
-def render_dashboard():
-    """Full dashboard with HTML report download."""
-    output_dir = st.session_state.output_dir
-    project_name = st.session_state.project_name
+def _load_data(output_dir):
+    """Load and cache all parsed data once into session state."""
+    if "parsed_data" in st.session_state:
+        return st.session_state.parsed_data
 
-    st.header(f"PHI Review - {project_name}", anchor=False)
-
-    # Load all data
     std_path = os.path.join(output_dir, "standard_elements.txt")
     priv_path = os.path.join(output_dir, "private_elements.txt")
     dt_path = os.path.join(output_dir, "date_time_elements.txt")
@@ -423,19 +412,38 @@ def render_dashboard():
     priv_seq_path = os.path.join(output_dir, "private_sequences.txt")
     large_priv_path = os.path.join(output_dir, "large_private_elements.txt")
 
-    std_elements = parse_standard_elements(std_path) if os.path.exists(std_path) else {}
-    priv_elements = parse_private_elements(priv_path) if os.path.exists(priv_path) else {}
-    dt_elements = parse_date_time(dt_path) if os.path.exists(dt_path) else {}
-    sop_classes = parse_simple_list(sop_path)
-    studies = parse_simple_list(studies_path)
-    counts = parse_counts(counts_path)
-    creators = parse_private_creators(creators_path)
-    std_sequences = parse_sequences(std_seq_path)
-    priv_sequences = parse_sequences(priv_seq_path)
-    large_priv = parse_large_private_elements(large_priv_path)
+    data = {
+        "std_elements": parse_standard_elements(std_path) if os.path.exists(std_path) else {},
+        "priv_elements": parse_private_elements(priv_path) if os.path.exists(priv_path) else {},
+        "dt_elements": parse_date_time(dt_path) if os.path.exists(dt_path) else {},
+        "sop_classes": parse_simple_list(sop_path),
+        "studies": parse_simple_list(studies_path),
+        "counts": parse_counts(counts_path),
+        "creators": parse_private_creators(creators_path),
+        "std_sequences": parse_sequences(std_seq_path),
+        "priv_sequences": parse_sequences(priv_seq_path),
+        "large_priv": parse_large_private_elements(large_priv_path),
+    }
+    data["total_files"] = sum(int(r["Files"]) for r in data["counts"]) if data["counts"] else 0
+    data["modalities"] = data["std_elements"].get("0008,0060", {}).get("values", [])
 
-    total_files = sum(int(r["Files"]) for r in counts) if counts else 0
-    modalities = std_elements.get("0008,0060", {}).get("values", [])
+    st.session_state.parsed_data = data
+    return data
+
+
+def render_dashboard():
+    """Full dashboard with HTML report download."""
+    output_dir = st.session_state.output_dir
+    project_name = st.session_state.project_name
+
+    st.header(f"PHI Review - {project_name}", anchor=False)
+
+    # Load all data once — cached in session state
+    d = _load_data(output_dir)
+
+    # Generate HTML report once — cached in session state
+    if "html_report" not in st.session_state:
+        st.session_state.html_report = generate_html_report(output_dir, project_name)
 
     # Sidebar navigation
     with st.sidebar:
@@ -446,10 +454,9 @@ def render_dashboard():
             index=0,
         )
         st.divider()
-        html_report = generate_html_report(output_dir, project_name)
         st.download_button(
             label="Download HTML Report",
-            data=html_report,
+            data=st.session_state.html_report,
             file_name=f"phi_report_{project_name}.html",
             mime="text/html",
             use_container_width=True,
@@ -458,21 +465,23 @@ def render_dashboard():
             # Clean up previous temp dir before starting fresh
             if st.session_state.output_dir and os.path.isdir(st.session_state.output_dir):
                 shutil.rmtree(st.session_state.output_dir, ignore_errors=True)
+            # Clear cached data and report
+            st.session_state.pop("parsed_data", None)
+            st.session_state.pop("html_report", None)
             st.session_state.state = "startup"
             st.rerun()
 
     # Route to section renderer
     if section == "Dataset Overview":
-        files_scanned = st.session_state.get("files_scanned")
-        render_overview(std_elements, priv_elements, sop_classes, studies, modalities, total_files, files_scanned)
+        render_overview(d["std_elements"], d["priv_elements"], d["sop_classes"], d["studies"], d["modalities"], d["total_files"])
     elif section == "PHI Review":
-        render_phi_review(std_elements, dt_elements)
+        render_phi_review(d["std_elements"], d["dt_elements"])
     elif section == "Tag Explorer":
-        render_tag_explorer(std_elements, priv_elements, std_sequences, priv_sequences)
+        render_tag_explorer(d["std_elements"], d["priv_elements"], d["std_sequences"], d["priv_sequences"])
     elif section == "Study Summary":
-        render_study_summary(counts, large_priv)
+        render_study_summary(d["counts"], d["large_priv"])
     elif section == "Private Creators":
-        render_private_creators(creators)
+        render_private_creators(d["creators"])
 
 
 # ---------------------------------------------------------------------------
