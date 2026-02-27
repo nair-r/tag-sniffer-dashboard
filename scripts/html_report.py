@@ -19,6 +19,7 @@ from dashboard import (
     parse_counts,
     parse_private_creators,
     parse_large_private_elements,
+    parse_scan_summary,
     PHI_GROUPS,
 )
 
@@ -208,17 +209,31 @@ def _details(summary, content, open_default=False):
 # Section generators
 # ---------------------------------------------------------------------------
 
-def _section_overview(std_elements, priv_elements, sop_classes, studies, modalities, total_files):
+def _section_overview(std_elements, priv_elements, sop_classes, studies, modalities, total_files, scan_summary=None):
     html = '<h2>Dataset Overview</h2>'
     html += '<div class="metrics">'
     for label, value in [
-        ("Total Files", f"{total_files:,}"),
+        ("DICOM Files Parsed", f"{total_files:,}"),
         ("Studies", str(len(studies))),
         ("Standard Tags", str(len(std_elements))),
         ("Private Element Groups", str(len(priv_elements))),
     ]:
         html += f'<div class="metric"><div class="value">{_esc(value)}</div><div class="label">{_esc(label)}</div></div>'
     html += '</div>'
+
+    if scan_summary and scan_summary.get("total_files", 0) > 0:
+        total = scan_summary["total_files"]
+        parsed = scan_summary.get("dicom_parsed", 0)
+        errors = scan_summary.get("parse_errors", 0)
+        skipped = total - parsed - errors
+        parts = [f"{total:,} files found in project"]
+        if parsed:
+            parts.append(f"{parsed:,} DICOM files parsed")
+        if errors:
+            parts.append(f"{errors:,} could not be parsed")
+        if skipped:
+            parts.append(f"{skipped:,} non-DICOM skipped")
+        html += f'<p style="color:#888; font-size:0.9em;">{" &bull; ".join(parts)}</p>'
 
     html += '<h3>Modalities</h3>'
     if modalities:
@@ -407,6 +422,8 @@ def generate_html_report(output_dir, project_name=""):
     std_sequences = parse_sequences(std_seq_path)
     priv_sequences = parse_sequences(priv_seq_path)
     large_priv = parse_large_private_elements(large_priv_path)
+    summary_path = os.path.join(output_dir, "scan_summary.txt")
+    scan_summary = parse_scan_summary(summary_path)
 
     total_files = sum(int(r["Files"]) for r in counts) if counts else 0
     modalities = std_elements.get("0008,0060", {}).get("values", [])
@@ -420,10 +437,10 @@ def generate_html_report(output_dir, project_name=""):
     body += f'<span><strong>Generated:</strong> {_esc(timestamp)}</span>'
     if project_name:
         body += f'<span><strong>Project:</strong> {_esc(project_name)}</span>'
-    body += f'<span><strong>Files scanned:</strong> {total_files:,}</span>'
+    body += f'<span><strong>DICOM files parsed:</strong> {total_files:,}</span>'
     body += '</div>'
 
-    body += _section_overview(std_elements, priv_elements, sop_classes, studies, modalities, total_files)
+    body += _section_overview(std_elements, priv_elements, sop_classes, studies, modalities, total_files, scan_summary)
     body += '<div class="section-divider"></div>'
     body += _section_phi_review(std_elements, dt_elements)
     body += '<div class="section-divider"></div>'
